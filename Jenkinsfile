@@ -1,9 +1,56 @@
 pipeline {
   agent any
 
-  parameters {
-    choice choices: ['javaapp-pipeline', 'javaapp-standalone', 'javaapp-tomcat'], name: 'folder'
-  }
+ parameters {
+    activeChoice(
+      name: 'File_Category',
+      choiceType: 'PT_RADIO',
+      description: 'Choose a file category (folder)',
+      script: [
+        $class: 'GroovyScript',
+        script: [
+          script: 'return ["javaapp-pipeline", "javaapp-standalone", "javaapp-tomcat"]'
+        ]
+      ]
+    )
+
+    reactiveChoice(
+      name: 'SelectedTests',
+      choiceType: 'PT_CHECKBOX',
+      description: 'Select specific file types for this category',
+      script: [
+        $class: 'GroovyScript',
+        script: [
+          script: '''
+            if (File_Category.equals('javaapp-pipeline')) {
+                return ['jar', 'war', 'ear']
+            } else if (File_Category.equals('javaapp-standalone')) {
+                return ['jar', 'war', 'ear']
+            } else if (File_Category.equals('javaapp-tomcat')) {
+                return ['jar', 'war', 'ear']
+            } else {
+                return ['No tests available']
+            }
+          '''
+        ]
+      ],
+      referencedParameters: 'File_Category'
+    )
+
+    activeChoiceHtml(
+      name: 'SummaryMessage',
+      choiceType: 'ET_FORMATTED_HTML',
+      description: 'Summary of your selections',
+      script: [
+        $class: 'GroovyScript',
+        script: [
+          script: '''
+            return "<div style='padding:10px; background:#e8f5e9; border:2px solid #4caf50;'><b>File Category (Folder):</b> " + File_Category + "<br><b>Selected File Types:</b> " + SelectedTests + "</div>"
+          '''
+        ]
+      ],
+      referencedParameters: 'File_Category,SelectedTests'
+    )
 
   stages {
     stage('Checkout') {
@@ -66,9 +113,11 @@ stage('Upload to Artifactory') {
 
 
 stage ('Manual Approval' ) {
-	when {
+
+when {
         branch 'main'
           }
+
      options{ 
         timeout( time: 1 , unit: 'MINUTES') 
       }
@@ -91,15 +140,16 @@ stage ('Deploy') {
           """
 	}
 	}
+ }
 
 
-
-  }
 post {
     always {
+  when {
+        branch 'main'
+          }
       echo "Clean the work space after post build"
       cleanWs()
     }
   }
-
 }
