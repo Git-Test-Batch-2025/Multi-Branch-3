@@ -56,7 +56,7 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        git 'https://github.com/prashanth0996/jenkins.git'
+        git 'https://github.com/Git-Test-Batch-2025/Multi-Branch-3.git'
       }
     }
 
