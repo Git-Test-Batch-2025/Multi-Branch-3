@@ -88,56 +88,69 @@ pipeline {
       }
     }
 
-    stage('Sonar-Test') {
-      steps {
-        withSonarQubeEnv('Sonar') {
-          sh """
-            cd ${params.File_Category}
-            mvn clean verify sonar:sonar  -Dsonar.projectKey='JOB_Test' -Dsonar.projectName='JOB_Test'
-          """
-        }
-      }
-    }
+  stage('Code Analysis') {
 
-    stage('Upload to Artifactory') {
-      steps {
-        script {
-          def selectedTypes = params.SelectedTests.tokenize(',')
-          for (type in selectedTypes) {
-            rtUpload(
-              serverId: 'Jfrog',
-              spec: """{
-                "files": [{
-                  "pattern": "${params.File_Category}/target/*.${type.trim()}",
-                  "target": "Maven/1.${env.BUILD_NUMBER}/"
-                }]
-              }"""
-            )
+                        steps {
+                withSonarQubeEnv('sonar') {
+                    sh '''
+                        cd ${folder} && pwd
+                        mvn clean verify sonar:sonar \
+                        -Dsonar.projectKey=java \
+                        -Dsonar.projectName=java 
+                    '''
+                }
+            }
+        }
+
+
+stage('Upload to Artifactory') {
+    when {
+        branch 'main'
           }
+              steps {
+                rtUpload(
+                    serverId: 'Jfrog',
+                    spec: '''{
+                        "files": [{
+                            "pattern": "${folder}/target/*.*ar",
+                            "target": "Maven/2.${BUILD_NUMBER}/"
+                        }]
+                    }'''
+                )
+            }
         }
-      }
-    }
 
-    stage('Manual Approval') {
-      options { 
-        timeout(time: 1, unit: 'MINUTES') 
-      }
-      steps {
-        input 'Approval for the Deploy'
-      }
-    }
+  stage ('Manual Approval' ) {
 
-    stage('Deploy') {
-      steps {
+when {
+        branch 'main'
+          }
+
+     options{ 
+        timeout( time: 1 , unit: 'MINUTES') 
+      }
+	steps{
+       input 'Approval for the Deploy'
+	}
+	}
+
+
+stage ('Deploy') {
+ when {
+        branch 'main'
+          }
+	steps {
         sh """
-          echo "The Deploy Started"
-          cd ${params.File_Category}/target
-          sudo cp *.jar /opt/tomcat/webapps/
-          echo "Deployed completed"
-        """
-      }
-    }
-  }
+        echo "The Deploy Started"
+        cd ${folder}/target
+	sudo cp *.*ar /opt/tomcat/webapps/
+	echo "Deployed completed"
+          """
+	}
+	}
+ }
+
+
 
   post {
     always {
